@@ -1,0 +1,23 @@
+{
+  "name": "ai-code-resolver",
+  "version": "1.0.0",
+  "description": "AI-assisted code suggestion tool that reads review feedback and applies automated fixes",
+  "main": "resolveWithAI.js",
+  "scripts": {
+    "start": "node resolveWithAI.js",
+    "resolve": "node resolveWithAI.js"
+  },
+  "dependencies": {
+    "axios": "^0.27.2",
+    "dotenv": "^16.0.3",
+    "inquirer": "^8.2.4"
+  },
+  "keywords": [
+    "ai",
+    "code-review",
+    "automation",
+    "openai"
+  ],
+  "author": "AI Assistant",
+  "license": "MIT"
+} 
