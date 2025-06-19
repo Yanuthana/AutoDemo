@@ -15,6 +15,7 @@ class EnhancedAICodeResolver {
         this.processedCount = 0;
         this.appliedCount = 0;
         this.skippedCount = 0;
+        this.resolvedDiscussionIds = []; // Track which discussions were resolved
     }
 
     log(message, type = 'info') {
@@ -78,6 +79,30 @@ class EnhancedAICodeResolver {
             return discussions;
         } catch (error) {
             throw new Error(`Failed to parse discussions.json: ${error.message}`);
+        }
+    }
+
+    /**
+     * Remove resolved discussions from discussions.json
+     * This updates the file to only contain unresolved discussions
+     */
+    updateDiscussionsFile(discussions) {
+        try {
+            // Filter out resolved discussions
+            const unresolvedDiscussions = discussions.filter(
+                discussion => !this.resolvedDiscussionIds.includes(discussion.id)
+            );
+            
+            // Write back to file with proper formatting
+            const jsonContent = JSON.stringify(unresolvedDiscussions, null, 2);
+            this.writeFile(this.discussionsFilePath, jsonContent);
+            
+            this.log(`Updated ${this.discussionsFilePath} - removed ${this.resolvedDiscussionIds.length} resolved discussion(s)`, 'success');
+            
+            return unresolvedDiscussions;
+        } catch (error) {
+            this.log(`Failed to update discussions file: ${error.message}`, 'error');
+            throw error;
         }
     }
 
@@ -197,6 +222,9 @@ Maintain the same indentation and formatting style as the original code.`;
         
         this.displayDiff(originalCode, suggestedCode);
         
+        console.log('\n💡 Take your time to review the changes above...');
+        
+        // Remove any timeout - wait indefinitely for user input
         const answer = await inquirer.prompt([
             {
                 type: 'confirm',
@@ -253,6 +281,9 @@ Maintain the same indentation and formatting style as the original code.`;
                 
                 this.writeFile(this.appFilePath, updatedContent);
                 this.log(`✅ Applied fix for discussion #${discussion.id}`, 'success');
+                
+                // Mark this discussion as resolved for removal from discussions.json
+                this.resolvedDiscussionIds.push(discussion.id);
                 this.appliedCount++;
                 return true;
             } else {
@@ -278,13 +309,13 @@ Maintain the same indentation and formatting style as the original code.`;
         
         if (this.appliedCount > 0) {
             console.log(`🎉 ${this.appliedCount} fix(es) applied to ${this.appFilePath}!`);
+            console.log(`🗑️  ${this.resolvedDiscussionIds.length} resolved discussion(s) removed from ${this.discussionsFilePath}`);
         } else {
             console.log(`📝 No changes made to ${this.appFilePath}`);
         }
         
-        // Close any lingering input streams
-        if (process.stdin && process.stdin.unref) {
-            process.stdin.unref();
+        if (this.resolvedDiscussionIds.length > 0) {
+            console.log(`📋 Resolved discussions: ${this.resolvedDiscussionIds.join(', ')}`);
         }
     }
 
@@ -319,6 +350,12 @@ Maintain the same indentation and formatting style as the original code.`;
                     console.log('\n⏳ Preparing next discussion...');
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 }
+            }
+            
+            // Update discussions.json to remove resolved discussions
+            if (this.resolvedDiscussionIds.length > 0) {
+                console.log('\n📝 Updating discussions.json to remove resolved items...');
+                this.updateDiscussionsFile(discussions);
             }
             
             this.displaySummary();
