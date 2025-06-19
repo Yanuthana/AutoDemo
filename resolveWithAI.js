@@ -4,18 +4,22 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const inquirer = require('inquirer');
+const { diffLines } = require('diff');
 require('dotenv').config();
 
-class AICodeResolver {
+class EnhancedAICodeResolver {
     constructor() {
         this.appFilePath = 'app.js';
         this.discussionsFilePath = 'discussions.json';
         this.openaiApiKey = process.env.OPENAI_API_KEY;
+        this.processedCount = 0;
+        this.appliedCount = 0;
+        this.skippedCount = 0;
     }
 
     log(message, type = 'info') {
         const timestamp = new Date().toISOString();
-        const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+        const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
         console.log(`${prefix} [${timestamp}] ${message}`);
     }
 
@@ -31,6 +35,8 @@ class AICodeResolver {
         if (!fs.existsSync(this.discussionsFilePath)) {
             throw new Error(`Discussions file ${this.discussionsFilePath} not found.`);
         }
+
+        this.log('Environment validation passed', 'success');
     }
 
     readFile(filePath) {
@@ -53,7 +59,23 @@ class AICodeResolver {
     parseDiscussions() {
         try {
             const content = this.readFile(this.discussionsFilePath);
-            return JSON.parse(content);
+            const discussions = JSON.parse(content);
+            
+            if (!Array.isArray(discussions)) {
+                throw new Error('Discussions must be an array');
+            }
+            
+            // Validate each discussion
+            discussions.forEach((discussion, index) => {
+                if (!discussion.id || !discussion.comment || !discussion.lines) {
+                    throw new Error(`Discussion at index ${index} is missing required fields (id, comment, lines)`);
+                }
+                if (!Array.isArray(discussion.lines) || discussion.lines.length === 0) {
+                    throw new Error(`Discussion ${discussion.id} has invalid lines array`);
+                }
+            });
+            
+            return discussions;
         } catch (error) {
             throw new Error(`Failed to parse discussions.json: ${error.message}`);
         }
@@ -62,28 +84,40 @@ class AICodeResolver {
     extractCodeLines(content, startLine, endLine) {
         const lines = content.split('\n');
         
-        // Convert to 0-based indexing
+        // Convert to 0-based indexing and validate bounds
         const start = Math.max(0, startLine - 1);
         const end = Math.min(lines.length, endLine);
+        
+        if (start >= lines.length) {
+            throw new Error(`Start line ${startLine} is beyond file length (${lines.length} lines)`);
+        }
         
         return {
             extractedCode: lines.slice(start, end).join('\n'),
             allLines: lines,
             startIndex: start,
-            endIndex: end
+            endIndex: end,
+            lineCount: end - start
         };
     }
 
-    createOpenAIPrompt(comment, code) {
-        return `You are helping improve code based on a review comment.
+    createEnhancedOpenAIPrompt(discussion, extractedCode) {
+        const [startLine, endLine] = discussion.lines.length === 1 
+            ? [discussion.lines[0], discussion.lines[0]] 
+            : [Math.min(...discussion.lines), Math.max(...discussion.lines)];
 
-Here is the review comment:
-"${comment}"
+        return `You are helping improve JavaScript code based on code review feedback.
 
-Here is the original code:
-${code}
+File: ${this.appFilePath}
+Lines: ${startLine}${endLine !== startLine ? `-${endLine}` : ''}
+Comment: "${discussion.comment}"
 
-Please provide a revised version of the code that fixes the issue. Return only the corrected code without any explanations or markdown formatting.`;
+Original Code:
+${extractedCode}
+
+Please suggest an improved version that solves the review comment. 
+Return ONLY the corrected code without any explanations, markdown formatting, or code blocks.
+Maintain the same indentation and formatting style as the original code.`;
     }
 
     async callOpenAI(prompt) {
@@ -100,7 +134,7 @@ Please provide a revised version of the code that fixes the issue. Return only t
                             content: prompt
                         }
                     ],
-                    max_tokens: 500,
+                    max_tokens: 800,
                     temperature: 0.1
                 },
                 {
@@ -127,23 +161,47 @@ Please provide a revised version of the code that fixes the issue. Return only t
         }
     }
 
-    async getUserApproval(originalCode, suggestedFix) {
-        console.log('\n' + '='.repeat(60));
-        console.log('📝 ORIGINAL CODE:');
-        console.log('='.repeat(60));
-        console.log(originalCode);
+    displayDiff(originalCode, suggestedCode) {
+        console.log('\n' + '═'.repeat(80));
+        console.log('📊 CODE COMPARISON');
+        console.log('═'.repeat(80));
         
-        console.log('\n' + '='.repeat(60));
-        console.log('🤖 SUGGESTED FIX:');
-        console.log('='.repeat(60));
-        console.log(suggestedFix);
-        console.log('='.repeat(60));
+        const diff = diffLines(originalCode, suggestedCode);
+        
+        diff.forEach((part) => {
+            // Green for additions, red for deletions, white for common parts
+            const color = part.added ? '\x1b[32m' : part.removed ? '\x1b[31m' : '\x1b[37m';
+            const prefix = part.added ? '+ ' : part.removed ? '- ' : '  ';
+            const reset = '\x1b[0m';
+            
+            if (part.value.trim()) {
+                part.value.split('\n').forEach((line, index) => {
+                    if (line.length > 0 || index < part.value.split('\n').length - 1) {
+                        console.log(`${color}${prefix}${line}${reset}`);
+                    }
+                });
+            }
+        });
+        
+        console.log('═'.repeat(80));
+        console.log('Legend: \x1b[32m+ Added\x1b[0m | \x1b[31m- Removed\x1b[0m | \x1b[37m  Unchanged\x1b[0m');
+        console.log('═'.repeat(80));
+    }
 
+    async getUserApproval(discussion, originalCode, suggestedCode) {
+        console.log('\n' + '🔍 REVIEW DISCUSSION #' + discussion.id);
+        console.log('─'.repeat(50));
+        console.log(`💬 Comment: "${discussion.comment}"`);
+        console.log(`📍 Lines: ${discussion.lines.join(', ')}`);
+        console.log(`📄 File: ${this.appFilePath}`);
+        
+        this.displayDiff(originalCode, suggestedCode);
+        
         const answer = await inquirer.prompt([
             {
                 type: 'confirm',
                 name: 'accept',
-                message: 'Do you want to apply this fix?',
+                message: '🤖 Do you want to apply this AI-suggested fix?',
                 default: false
             }
         ]);
@@ -165,74 +223,140 @@ Please provide a revised version of the code that fixes the issue. Return only t
         return newLines.join('\n');
     }
 
-    async processDiscussion(discussion) {
-        this.log(`Processing discussion: ${discussion.comment}`);
-        
-        const appContent = this.readFile(this.appFilePath);
-        const [startLine, endLine] = discussion.lines;
-        
-        const { extractedCode, allLines } = this.extractCodeLines(appContent, startLine, endLine);
-        
-        this.log(`Extracted code from lines ${startLine}-${endLine}`);
-        
-        const prompt = this.createOpenAIPrompt(discussion.comment, extractedCode);
-        const suggestedFix = await this.callOpenAI(prompt);
-        
-        this.log('Received suggestion from OpenAI', 'success');
-        
-        const userAccepted = await this.getUserApproval(extractedCode, suggestedFix);
-        
-        if (userAccepted) {
-            const updatedContent = this.applyFix(
-                appContent, 
-                suggestedFix, 
-                startLine - 1, 
-                endLine
-            );
+    async processDiscussion(discussion, discussionIndex, totalDiscussions) {
+        try {
+            this.log(`Processing discussion ${discussionIndex + 1}/${totalDiscussions}: "${discussion.comment}"`);
             
-            this.writeFile(this.appFilePath, updatedContent);
-            this.log(`Applied fix to ${this.appFilePath}`, 'success');
-            return true;
-        } else {
-            this.log('Fix rejected by user');
+            const appContent = this.readFile(this.appFilePath);
+            const [startLine, endLine] = discussion.lines.length === 1 
+                ? [discussion.lines[0], discussion.lines[0] + 1] 
+                : [Math.min(...discussion.lines), Math.max(...discussion.lines) + 1];
+            
+            const { extractedCode } = this.extractCodeLines(appContent, startLine, endLine);
+            
+            this.log(`Extracted ${endLine - startLine} line(s) from ${this.appFilePath}`);
+            
+            const prompt = this.createEnhancedOpenAIPrompt(discussion, extractedCode);
+            const suggestedFix = await this.callOpenAI(prompt);
+            
+            this.log('Received suggestion from OpenAI', 'success');
+            
+            const userAccepted = await this.getUserApproval(discussion, extractedCode, suggestedFix);
+            
+            if (userAccepted) {
+                const updatedContent = this.applyFix(
+                    appContent, 
+                    suggestedFix, 
+                    startLine - 1, 
+                    endLine - 1
+                );
+                
+                this.writeFile(this.appFilePath, updatedContent);
+                this.log(`✅ Applied fix for discussion #${discussion.id}`, 'success');
+                this.appliedCount++;
+                return true;
+            } else {
+                this.log(`⏭️  Skipped discussion #${discussion.id}`, 'warning');
+                this.skippedCount++;
+                return false;
+            }
+        } catch (error) {
+            this.log(`❌ Error processing discussion #${discussion.id}: ${error.message}`, 'error');
+            this.skippedCount++;
             return false;
+        }
+    }
+
+    displaySummary() {
+        console.log('\n' + '🎯 PROCESSING SUMMARY');
+        console.log('═'.repeat(50));
+        console.log(`📊 Total Discussions: ${this.processedCount}`);
+        console.log(`✅ Applied Fixes: ${this.appliedCount}`);
+        console.log(`⏭️  Skipped: ${this.skippedCount}`);
+        console.log(`📈 Success Rate: ${this.processedCount > 0 ? Math.round((this.appliedCount / this.processedCount) * 100) : 0}%`);
+        console.log('═'.repeat(50));
+        
+        if (this.appliedCount > 0) {
+            console.log(`🎉 ${this.appliedCount} fix(es) applied to ${this.appFilePath}!`);
+        } else {
+            console.log(`📝 No changes made to ${this.appFilePath}`);
+        }
+        
+        // Close any lingering input streams
+        if (process.stdin && process.stdin.unref) {
+            process.stdin.unref();
         }
     }
 
     async run() {
         try {
-            this.log('🚀 Starting AI Code Resolver...');
+            this.log('🚀 Starting Enhanced AI Code Resolver...');
+            console.log('═'.repeat(80));
+            console.log('🤖 AI-POWERED CODE REVIEW ASSISTANT');
+            console.log('═'.repeat(80));
             
             this.validateEnvironment();
-            this.log('Environment validation passed', 'success');
             
             const discussions = this.parseDiscussions();
+            this.processedCount = discussions.length;
+            
             this.log(`Found ${discussions.length} discussion(s) to process`);
             
-            for (const discussion of discussions) {
+            if (discussions.length === 0) {
+                this.log('No discussions found. Nothing to process.', 'warning');
+                process.exit(0);
+            }
+
+            // Process each discussion sequentially
+            for (let i = 0; i < discussions.length; i++) {
+                const discussion = discussions[i];
                 console.log('\n' + '─'.repeat(80));
-                const applied = await this.processDiscussion(discussion);
                 
-                if (applied) {
-                    this.log(`Discussion ${discussion.id} resolved successfully`, 'success');
-                } else {
-                    this.log(`Discussion ${discussion.id} was not applied`);
+                await this.processDiscussion(discussion, i, discussions.length);
+                
+                // Add a small delay between discussions for better UX
+                if (i < discussions.length - 1) {
+                    console.log('\n⏳ Preparing next discussion...');
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
             }
             
-            this.log('🎉 All discussions processed!', 'success');
+            this.displaySummary();
+            
+            // Ensure the script exits cleanly
+            this.log('🏁 All discussions processed. Exiting...', 'success');
+            process.exit(0);
             
         } catch (error) {
-            this.log(`Error: ${error.message}`, 'error');
+            this.log(`Fatal error: ${error.message}`, 'error');
+            console.log('\n💡 Troubleshooting tips:');
+            console.log('  • Ensure .env file exists with valid OPENAI_API_KEY');
+            console.log('  • Check that app.js and discussions.json exist');
+            console.log('  • Verify discussions.json has valid JSON format');
+            console.log('  • Make sure line numbers in discussions.json are within file bounds');
             process.exit(1);
         }
     }
 }
 
-// Run the tool
+// Run the enhanced tool
 if (require.main === module) {
-    const resolver = new AICodeResolver();
-    resolver.run();
+    // Ensure the script only runs once
+    let isRunning = false;
+    
+    if (!isRunning) {
+        isRunning = true;
+        const resolver = new EnhancedAICodeResolver();
+        resolver.run().then(() => {
+            // Extra safety - force exit after completion
+            setTimeout(() => {
+                process.exit(0);
+            }, 500);
+        }).catch((error) => {
+            console.error('❌ Unexpected error:', error.message);
+            process.exit(1);
+        });
+    }
 }
 
-module.exports = AICodeResolver; 
+module.exports = EnhancedAICodeResolver; 

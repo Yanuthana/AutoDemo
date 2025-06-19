@@ -2,6 +2,16 @@
   {
     "id": 1,
     "comment": "Add a null check for user.profile.name",
-    "lines": [1, 2,3]
+    "lines": [1, 2]
+  },
+  {
+    "id": 2,
+    "comment": "Use const instead of let for immutable variables",
+    "lines": [4]
+  },
+  {
+    "id": 3,
+    "comment": "Add error handling for the console.log call",
+    "lines": [3]
   }
 ] 

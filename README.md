@@ -1,23 +1,33 @@
-# AutoDemo - AI Code Resolver
+# AutoDemo - Enhanced AI Code Resolver v2.0
 
-A local AI-assisted code suggestion tool that reads review feedback and applies automated code fixes using OpenAI. This tool runs in Cursor IDE as a testable script.
+An advanced AI-assisted code suggestion tool that reads review feedback and applies automated code fixes using OpenAI. Features visual diff comparison, enhanced prompts, and sequential processing of multiple review comments.
+
+## 🚀 New Features in v2.0
+
+- **📊 Visual Diff Display** - See changes highlighted with colors (green for additions, red for deletions)
+- **🔄 Sequential Processing** - Loops through all discussions in `discussions.json`
+- **🧠 Enhanced AI Prompts** - Includes file name, line numbers, and context for better suggestions
+- **📈 Progress Tracking** - Shows processing progress and final statistics
+- **🎯 Better UX** - Improved formatting, emojis, and user guidance
+- **🛡️ Robust Error Handling** - Validates input and handles edge cases gracefully
 
 ## 🔧 Features
 
-- Reads code review comments from JSON file
+- Processes multiple code review comments automatically
 - Extracts specific line ranges from code files
-- Sends review context to OpenAI for suggestions
-- Interactive approval process for applying fixes
+- Sends enhanced context to OpenAI for better suggestions
+- Interactive approval process with visual diff comparison
 - Secure API key management
 - Comprehensive error handling and logging
+- Success rate tracking and summary statistics
 
 ## 📁 Files Structure
 
 ```
-├── resolveWithAI.js     # Main script
+├── resolveWithAI.js     # Enhanced main script
 ├── app.js               # Demo code file
-├── discussions.json     # Mock review data
-├── package.json         # Dependencies
+├── discussions.json     # Multiple review comments
+├── package.json         # Dependencies (includes diff library)
 ├── .env                 # API key (create this)
 └── README.md           # This file
 ```
@@ -43,7 +53,7 @@ A local AI-assisted code suggestion tool that reads review feedback and applies 
 
 ## 🛠️ Usage
 
-Run the script:
+Run the enhanced script:
 ```bash
 node resolveWithAI.js
 ```
@@ -55,64 +65,153 @@ npm start
 
 ## 📋 How It Works
 
-1. **Reads Review Data**: Loads `discussions.json` containing review comments and line numbers
-2. **Extracts Code**: Gets the specified lines from `app.js`
-3. **Calls OpenAI**: Sends the review comment and code to OpenAI for suggestions
-4. **User Approval**: Shows original vs suggested code and asks for approval
-5. **Applies Fix**: If approved, updates the code file with the suggestion
-6. **Logs Actions**: Provides clear feedback on all operations
+1. **Loads All Discussions** - Reads all review comments from `discussions.json`
+2. **Sequential Processing** - Goes through each discussion one by one
+3. **Enhanced Context** - Sends file name, line numbers, and comment to OpenAI
+4. **Visual Diff** - Shows before/after comparison with color-coded changes
+5. **User Decision** - Ask for approval before applying each fix
+6. **File Updates** - Applies approved changes to `app.js`
+7. **Summary Report** - Shows statistics of applied vs skipped fixes
 
-## 📝 Example Flow
+## 📝 Enhanced discussions.json Format
 
-The demo includes:
-- `app.js` with a null safety issue
-- `discussions.json` with a review comment about adding null checks
-- The tool will suggest a fix and ask for your approval
+```json
+[
+  {
+    "id": 1,
+    "comment": "Add a null check for user.profile.name",
+    "lines": [1, 2]
+  },
+  {
+    "id": 2,
+    "comment": "Use const instead of let for immutable variables",
+    "lines": [4]
+  },
+  {
+    "id": 3,
+    "comment": "Add error handling for the console.log call",
+    "lines": [3]
+  }
+]
+```
+
+## 🎨 Enhanced AI Prompt Format
+
+The tool now sends richer context to OpenAI:
+
+```
+You are helping improve JavaScript code based on code review feedback.
+
+File: app.js
+Lines: 1-2
+Comment: "Add a null check for user.profile.name"
+
+Original Code:
+function getUserName(user) {
+  return user.profile.name;
+}
+
+Please suggest an improved version that solves the review comment...
+```
+
+## 🔍 Visual Diff Example
+
+```
+📊 CODE COMPARISON
+═══════════════════════════════════════════════════════════════════════════════
+  function getUserName(user) {
+-   return user.profile.name;
++   return user && user.profile ? user.profile.name : null;
+  }
+═══════════════════════════════════════════════════════════════════════════════
+Legend: + Added | - Removed |   Unchanged
+═══════════════════════════════════════════════════════════════════════════════
+```
+
+## 🎯 Processing Summary
+
+After processing all discussions, you'll see:
+
+```
+🎯 PROCESSING SUMMARY
+══════════════════════════════════════════════════════
+📊 Total Discussions: 3
+✅ Applied Fixes: 2
+⏭️  Skipped: 1
+📈 Success Rate: 67%
+══════════════════════════════════════════════════════
+🎉 2 fix(es) applied to app.js!
+```
 
 ## 🔐 Security
 
 - API key is stored in `.env` file (not committed to version control)
 - All API calls use HTTPS
 - Input validation and error handling throughout
+- No sensitive data logged
 
 ## 🛑 Error Handling
 
-The tool handles:
+The enhanced tool handles:
 - Missing API key
 - File not found errors
 - Invalid JSON in discussions
-- OpenAI API errors
-- Network timeouts
+- Line numbers beyond file bounds
+- OpenAI API errors and timeouts
+- Network connectivity issues
 - User cancellation
+- Malformed discussion entries
 
 ## 🧪 Testing
 
-The tool comes with sample data ready for testing:
-- Buggy code in `app.js`
-- Review comment in `discussions.json`
-- Just add your OpenAI API key and run!
+The tool comes with enhanced sample data:
+- Multiple review comments in `discussions.json`
+- Various types of code issues in `app.js`
+- Comprehensive error scenarios covered
 
-## 📊 Sample Output
+## 📊 Sample Enhanced Output
 
 ```
-ℹ️ [2024-01-01T12:00:00.000Z] 🚀 Starting AI Code Resolver...
-✅ [2024-01-01T12:00:00.000Z] Environment validation passed
-ℹ️ [2024-01-01T12:00:00.000Z] Found 1 discussion(s) to process
-ℹ️ [2024-01-01T12:00:00.000Z] Processing discussion: Add a null check for user.profile.name
-ℹ️ [2024-01-01T12:00:00.000Z] Extracted code from lines 1-2
-ℹ️ [2024-01-01T12:00:00.000Z] Sending request to OpenAI...
-✅ [2024-01-01T12:00:01.000Z] Received suggestion from OpenAI
+🚀 Starting Enhanced AI Code Resolver...
+═══════════════════════════════════════════════════════════════════════════════
+🤖 AI-POWERED CODE REVIEW ASSISTANT
+═══════════════════════════════════════════════════════════════════════════════
+✅ Environment validation passed
+ℹ️ Found 3 discussion(s) to process
 
-============================================================
-📝 ORIGINAL CODE:
-============================================================
-function getUserName(user) {
-  return user.profile.name;
+────────────────────────────────────────────────────────────────────────────────
+ℹ️ Processing discussion 1/3: "Add a null check for user.profile.name"
+ℹ️ Extracted 2 line(s) from app.js
+ℹ️ Sending request to OpenAI...
+✅ Received suggestion from OpenAI
 
-============================================================
-🤖 SUGGESTED FIX:
-============================================================
-function getUserName(user) {
-  return user && user.profile ? user.profile.name : null;
-============================================================
-? Do you want to apply this fix? (y/N) 
+🔍 REVIEW DISCUSSION #1
+──────────────────────────────────────────────────────
+💬 Comment: "Add a null check for user.profile.name"
+📍 Lines: 1, 2
+📄 File: app.js
+
+📊 CODE COMPARISON
+═══════════════════════════════════════════════════════════════════════════════
+  function getUserName(user) {
+-   return user.profile.name;
++   return user && user.profile ? user.profile.name : null;
+  }
+═══════════════════════════════════════════════════════════════════════════════
+Legend: + Added | - Removed |   Unchanged
+═══════════════════════════════════════════════════════════════════════════════
+
+? 🤖 Do you want to apply this AI-suggested fix? (y/N)
+```
+
+## 🆕 What's New in v2.0
+
+- **Visual diff comparison** using the `diff` library
+- **Enhanced OpenAI prompts** with file context and metadata
+- **Sequential processing** of all discussions automatically
+- **Progress indicators** showing current discussion number
+- **Summary statistics** with success rates
+- **Better error messages** with troubleshooting tips
+- **Improved user interface** with emojis and formatting
+- **Robust validation** of discussions.json format
+- **Graceful error recovery** - continues processing if one discussion fails
