@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head><title>AutoDemo</title></head>
+<body>
+<h1>AutoDemo Frontend</h1>
+<button id="helloBtn">Get Hello</button>
+<div id="helloResult"></div>
+
+<form id="echoForm">
+    <input type="text" id="echoInput" placeholder="Type something..." />
+    <button type="submit">Echo</button>
+    <div id="echoResult"></div>
+</form>
+
+<script>
+    document.getElementById('helloBtn').onclick = async () => {
+        const res = await fetch('http://localhost:3000/api/hello');
+        const data = await res.json();
+        document.getElementById('helloResult').innerText = data.message;
+    };
+
+    document.getElementById('echoForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const text = document.getElementById('echoInput').value;
+        const res = await fetch('http://localhost:3000/api/echo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text }),
+        });
+        const data = await res.json();
+        document.getElementById('echoResult').innerText = data.echo;
+    };
+</script>
+</body>
+</html>
