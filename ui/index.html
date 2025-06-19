@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Code Resolver</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css" rel="stylesheet" />
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="app-title">
+                    <span class="icon">🤖</span>
+                    AI Code Resolver
+                </h1>
+                <div class="header-actions">
+                    <button id="runAgainBtn" class="btn btn-secondary" disabled>
+                        <span class="icon">🔄</span>
+                        Run Again
+                    </button>
+                    <div class="status-indicator" id="statusIndicator">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Ready</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Welcome Screen -->
+            <div id="welcomeScreen" class="welcome-screen">
+                <div class="welcome-content">
+                    <div class="welcome-icon">🚀</div>
+                    <h2>AI-Powered Code Review Assistant</h2>
+                    <p>Review and apply AI-suggested code improvements based on your discussions.</p>
+                    <button id="startBtn" class="btn btn-primary btn-large">
+                        <span class="icon">▶️</span>
+                        Start Review Process
+                    </button>
+                </div>
+            </div>
+
+            <!-- Discussion View -->
+            <div id="discussionView" class="discussion-view" style="display: none;">
+                <!-- Progress Bar -->
+                <div class="progress-container">
+                    <div class="progress-info">
+                        <span id="progressText">Discussion 1 of 3</span>
+                        <span id="discussionId" class="discussion-id">#1</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill"></div>
+                    </div>
+                </div>
+
+                <!-- Discussion Header -->
+                <div class="discussion-header">
+                    <h3 class="discussion-title">
+                        <span class="icon">💬</span>
+                        Review Comment
+                    </h3>
+                    <div id="discussionComment" class="discussion-comment">
+                        Add a null check for user.profile.name
+                    </div>
+                    <div class="file-info">
+                        <span class="icon">📄</span>
+                        <span id="fileName">app.js</span>
+                        <span class="separator">•</span>
+                        <span class="icon">📍</span>
+                        Lines: <span id="lineNumbers">1-2</span>
+                    </div>
+                </div>
+
+                <!-- Code Comparison -->
+                <div class="code-comparison">
+                    <div class="comparison-header">
+                        <h4>
+                            <span class="icon">📊</span>
+                            Code Comparison
+                        </h4>
+                        <div class="legend">
+                            <span class="legend-item">
+                                <span class="legend-color added"></span>
+                                Added
+                            </span>
+                            <span class="legend-item">
+                                <span class="legend-color removed"></span>
+                                Removed
+                            </span>
+                            <span class="legend-item">
+                                <span class="legend-color unchanged"></span>
+                                Unchanged
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="diff-container">
+                        <div id="diffView" class="diff-view">
+                            <!-- Diff content will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button id="rejectBtn" class="btn btn-reject">
+                        <span class="icon">❌</span>
+                        Reject
+                    </button>
+                    <button id="acceptBtn" class="btn btn-accept">
+                        <span class="icon">✅</span>
+                        Accept & Apply
+                    </button>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="loading-state" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Getting AI suggestion...</div>
+                </div>
+            </div>
+
+            <!-- Summary View -->
+            <div id="summaryView" class="summary-view" style="display: none;">
+                <div class="summary-content">
+                    <div class="summary-icon">🎯</div>
+                    <h2>Processing Complete!</h2>
+                    <div class="summary-stats">
+                        <div class="stat-item">
+                            <div class="stat-number" id="totalDiscussions">0</div>
+                            <div class="stat-label">Total Discussions</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="appliedFixes">0</div>
+                            <div class="stat-label">Applied Fixes</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="skippedFixes">0</div>
+                            <div class="stat-label">Skipped</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="successRate">0%</div>
+                            <div class="stat-label">Success Rate</div>
+                        </div>
+                    </div>
+                    <div id="summaryMessage" class="summary-message">
+                        Great job! All discussions have been processed.
+                    </div>
+                    <button id="restartBtn" class="btn btn-primary btn-large">
+                        <span class="icon">🔄</span>
+                        Start New Review
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Notification Area -->
+        <div id="notificationArea" class="notification-area"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-javascript.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html> 
