@@ -1,4 +1,4 @@
-# AI Code Resolver
+# AutoDemo - AI Code Resolver
 
 A local AI-assisted code suggestion tool that reads review feedback and applies automated code fixes using OpenAI. This tool runs in Cursor IDE as a testable script.
 
