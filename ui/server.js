@@ -3,7 +3,9 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config();
+
+// Load environment variables from the parent directory
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 // Import the existing AI resolver logic
 const EnhancedAICodeResolver = require('../resolveWithAI.js');
@@ -12,7 +14,12 @@ class UIServer {
     constructor() {
         this.app = express();
         this.port = process.env.PORT || 3000;
+        
+        // Create resolver instance with correct file paths (parent directory)
         this.resolver = new EnhancedAICodeResolver();
+        // Override the file paths to point to the parent directory
+        this.resolver.appFilePath = path.join(__dirname, '..', 'app.js');
+        this.resolver.discussionsFilePath = path.join(__dirname, '..', 'discussions.json');
         
         this.setupMiddleware();
         this.setupRoutes();
@@ -99,7 +106,7 @@ class UIServer {
                 const prompt = this.resolver.createEnhancedOpenAIPrompt(discussion, extractedCode);
                 const suggestedFix = await this.resolver.callOpenAI(prompt);
                 
-                // Apply the fix
+                // Apply the fix to app.js
                 const updatedContent = this.resolver.applyFix(
                     appContent, 
                     suggestedFix, 
@@ -107,46 +114,21 @@ class UIServer {
                     endLine - 1
                 );
                 
-                // Write the updated content back to the file
+                // Write the updated content back to the app.js file
                 this.resolver.writeFile(this.resolver.appFilePath, updatedContent);
                 
-                res.json({ 
-                    success: true, 
-                    message: `Fix applied for discussion #${discussion.id}`,
-                    appliedCode: suggestedFix
-                });
-                
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        // API endpoint to update discussions.json (remove resolved discussions)
-        this.app.post('/api/update-discussions', async (req, res) => {
-            try {
-                const { resolvedIds } = req.body;
-                
-                if (!resolvedIds || !Array.isArray(resolvedIds)) {
-                    return res.status(400).json({ error: 'resolvedIds must be an array' });
-                }
-                
-                // Read current discussions
-                const discussions = this.resolver.parseDiscussions();
-                
-                // Filter out resolved discussions
-                const unresolvedDiscussions = discussions.filter(
-                    discussion => !resolvedIds.includes(discussion.id)
-                );
-                
-                // Write back to file
-                const jsonContent = JSON.stringify(unresolvedDiscussions, null, 2);
+                // IMMEDIATELY remove this discussion from discussions.json
+                const currentDiscussions = this.resolver.parseDiscussions();
+                const updatedDiscussions = currentDiscussions.filter(d => d.id !== discussion.id);
+                const jsonContent = JSON.stringify(updatedDiscussions, null, 2);
                 this.resolver.writeFile(this.resolver.discussionsFilePath, jsonContent);
                 
                 res.json({ 
                     success: true, 
-                    message: `Removed ${resolvedIds.length} resolved discussion(s)`,
-                    removedIds: resolvedIds,
-                    remainingDiscussions: unresolvedDiscussions.length
+                    message: `Fix applied for discussion #${discussion.id} and removed from discussions.json`,
+                    appliedCode: suggestedFix,
+                    discussionRemoved: true,
+                    remainingDiscussions: updatedDiscussions.length
                 });
                 
             } catch (error) {

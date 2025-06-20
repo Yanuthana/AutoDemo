@@ -111,38 +111,16 @@ class AICodeResolverUI {
     }
 
     async loadDiscussions() {
-        // Simulate backend call - In a real implementation, this would call your Node.js backend
         try {
             const response = await fetch('/api/discussions');
             if (!response.ok) {
-                throw new Error('Failed to load discussions');
+                throw new Error(`Failed to load discussions: ${response.status} ${response.statusText}`);
             }
             return await response.json();
         } catch (error) {
-            // Fallback to local simulation for demo
-            return this.getSimulatedDiscussions();
+            // Do NOT fallback to dummy data - throw the error to be handled by the caller
+            throw new Error(`Could not load discussions from backend: ${error.message}`);
         }
-    }
-
-    getSimulatedDiscussions() {
-        // This simulates the discussions.json content for demo purposes
-        return [
-            {
-                id: 1,
-                comment: "Add a null check for user.profile.name",
-                lines: [1, 2]
-            },
-            {
-                id: 2,
-                comment: "Use const instead of let for immutable variables",
-                lines: [4]
-            },
-            {
-                id: 3,
-                comment: "Add error handling for the console.log call",
-                lines: [3]
-            }
-        ];
     }
 
     async processCurrentDiscussion() {
@@ -171,7 +149,6 @@ class AICodeResolverUI {
     }
 
     async getAISuggestion(discussion) {
-        // Simulate backend call to get AI suggestion
         try {
             const response = await fetch('/api/suggest', {
                 method: 'POST',
@@ -182,45 +159,14 @@ class AICodeResolverUI {
             });
             
             if (!response.ok) {
-                throw new Error('Failed to get AI suggestion');
+                throw new Error(`Failed to get AI suggestion: ${response.status} ${response.statusText}`);
             }
             
             return await response.json();
         } catch (error) {
-            // Fallback to simulated suggestions for demo
-            return this.getSimulatedSuggestion(discussion);
+            // Do NOT fallback to dummy suggestions - throw the error
+            throw new Error(`Could not get AI suggestion: ${error.message}`);
         }
-    }
-
-    getSimulatedSuggestion(discussion) {
-        // Simulate AI suggestions based on discussion
-        const suggestions = {
-            1: {
-                originalCode: `function getUserName(user) {
-  return user.profile.name;
-}`,
-                suggestedCode: `function getUserName(user) {
-  return user && user.profile ? user.profile.name : null;
-}`
-            },
-            2: {
-                originalCode: `let userName = "test user";`,
-                suggestedCode: `const userName = "test user";`
-            },
-            3: {
-                originalCode: `console.log(getUserName(null));`,
-                suggestedCode: `try {
-  console.log(getUserName(null));
-} catch (error) {
-  console.error("Error occurred:", error);
-}`
-            }
-        };
-
-        return suggestions[discussion.id] || {
-            originalCode: "// Original code",
-            suggestedCode: "// Suggested improvement"
-        };
     }
 
     updateProgress() {
@@ -311,13 +257,21 @@ class AICodeResolverUI {
             this.updateStatus('Applying fix...', 'processing');
             this.disableActionButtons(true);
             
-            // Apply the fix via backend
-            await this.applyFix(discussion);
+            // Apply the fix via backend (which now immediately removes the discussion)
+            const result = await this.applyFix(discussion);
             
             this.appliedCount++;
             this.resolvedDiscussionIds.push(discussion.id);
             
-            this.showNotification(`✅ Fix applied for discussion #${discussion.id}`, 'success');
+            // Show success notification with additional info
+            if (result.discussionRemoved) {
+                this.showNotification(
+                    `✅ Fix applied for discussion #${discussion.id} and removed from discussions.json. ${result.remainingDiscussions} discussions remaining.`, 
+                    'success'
+                );
+            } else {
+                this.showNotification(`✅ Fix applied for discussion #${discussion.id}`, 'success');
+            }
             
             this.moveToNextDiscussion();
             
@@ -337,7 +291,6 @@ class AICodeResolverUI {
     }
 
     async applyFix(discussion) {
-        // Simulate backend call to apply fix
         try {
             const response = await fetch('/api/apply-fix', {
                 method: 'POST',
@@ -348,14 +301,13 @@ class AICodeResolverUI {
             });
             
             if (!response.ok) {
-                throw new Error('Failed to apply fix');
+                throw new Error(`Failed to apply fix: ${response.status} ${response.statusText}`);
             }
             
             return await response.json();
         } catch (error) {
-            // For demo purposes, just simulate success
-            await new Promise(resolve => setTimeout(resolve, 500));
-            return { success: true };
+            // Do NOT simulate success - throw the real error
+            throw new Error(`Could not apply fix: ${error.message}`);
         }
     }
 
@@ -374,43 +326,12 @@ class AICodeResolverUI {
     }
 
     async finishProcessing() {
-        try {
-            this.updateStatus('Updating discussions file...', 'processing');
-            
-            // Update discussions.json to remove resolved discussions
-            if (this.resolvedDiscussionIds.length > 0) {
-                await this.updateDiscussionsFile();
-            }
-            
-            this.showSummary();
-            
-        } catch (error) {
-            this.showNotification(`Error updating discussions file: ${error.message}`, 'error');
-            this.showSummary(); // Show summary anyway
-        }
-    }
-
-    async updateDiscussionsFile() {
-        // Simulate backend call to update discussions.json
-        try {
-            const response = await fetch('/api/update-discussions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ resolvedIds: this.resolvedDiscussionIds })
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to update discussions file');
-            }
-            
-            return await response.json();
-        } catch (error) {
-            // For demo purposes, just simulate success
-            await new Promise(resolve => setTimeout(resolve, 500));
-            return { success: true };
-        }
+        this.updateStatus('Complete', 'complete');
+        
+        // No need for additional cleanup since discussions are immediately removed when accepted
+        // All resolved discussions have already been removed from discussions.json during processing
+        
+        this.showSummary();
     }
 
     showSummary() {
@@ -425,7 +346,7 @@ class AICodeResolverUI {
         
         const summaryMessage = document.getElementById('summaryMessage');
         if (this.appliedCount > 0) {
-            summaryMessage.textContent = `Great job! ${this.appliedCount} fix(es) applied to app.js and ${this.resolvedDiscussionIds.length} resolved discussion(s) removed from discussions.json.`;
+            summaryMessage.textContent = `Great job! ${this.appliedCount} fix(es) applied to app.js. Resolved discussions were automatically removed from discussions.json as they were processed.`;
         } else {
             summaryMessage.textContent = 'No changes were made to the code files.';
         }
