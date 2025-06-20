@@ -9,7 +9,6 @@ require('dotenv').config();
 
 class EnhancedAICodeResolver {
     constructor() {
-        this.appFilePath = 'app.js';
         this.discussionsFilePath = 'discussions.json';
         this.openaiApiKey = process.env.OPENAI_API_KEY;
         this.processedCount = 0;
@@ -29,10 +28,6 @@ class EnhancedAICodeResolver {
             throw new Error('OPENAI_API_KEY not found in .env file. Please add your OpenAI API key.');
         }
 
-        if (!fs.existsSync(this.appFilePath)) {
-            throw new Error(`Code file ${this.appFilePath} not found.`);
-        }
-
         if (!fs.existsSync(this.discussionsFilePath)) {
             throw new Error(`Discussions file ${this.discussionsFilePath} not found.`);
         }
@@ -42,6 +37,9 @@ class EnhancedAICodeResolver {
 
     readFile(filePath) {
         try {
+            if (!fs.existsSync(filePath)) {
+                throw new Error(`File ${filePath} not found in current directory`);
+            }
             return fs.readFileSync(filePath, 'utf8');
         } catch (error) {
             throw new Error(`Failed to read file ${filePath}: ${error.message}`);
@@ -73,6 +71,11 @@ class EnhancedAICodeResolver {
                 }
                 if (!Array.isArray(discussion.lines) || discussion.lines.length === 0) {
                     throw new Error(`Discussion ${discussion.id} has invalid lines array`);
+                }
+                // File field is required now - if missing, try to default to app.js with warning
+                if (!discussion.file) {
+                    this.log(`Discussion ${discussion.id} missing file field, defaulting to app.js`, 'warning');
+                    discussion.file = 'app.js';
                 }
             });
             
@@ -126,21 +129,30 @@ class EnhancedAICodeResolver {
         };
     }
 
-    createEnhancedOpenAIPrompt(discussion, extractedCode) {
+    createEnhancedOpenAIPrompt(discussion, extractedCode, fileName) {
         const [startLine, endLine] = discussion.lines.length === 1 
             ? [discussion.lines[0], discussion.lines[0]] 
             : [Math.min(...discussion.lines), Math.max(...discussion.lines)];
 
-        return `You are helping improve JavaScript code based on code review feedback.
+        // Determine file type for better context
+        const fileExtension = path.extname(fileName);
+        let fileType = 'code';
+        if (fileExtension === '.js') fileType = 'JavaScript';
+        else if (fileExtension === '.html') fileType = 'HTML';
+        else if (fileExtension === '.css') fileType = 'CSS';
+        else if (fileExtension === '.py') fileType = 'Python';
+        else if (fileExtension === '.java') fileType = 'Java';
 
-File: ${this.appFilePath}
+        return `You are helping improve ${fileType} code based on code review feedback.
+
+File: ${fileName}
 Lines: ${startLine}${endLine !== startLine ? `-${endLine}` : ''}
 Comment: "${discussion.comment}"
 
 Original Code:
 ${extractedCode}
 
-Please suggest an improved version that solves the review comment. 
+Please suggest an improved version that addresses the review comment. 
 Return ONLY the corrected code without any explanations, markdown formatting, or code blocks.
 Maintain the same indentation and formatting style as the original code.`;
     }
@@ -213,12 +225,12 @@ Maintain the same indentation and formatting style as the original code.`;
         console.log('═'.repeat(80));
     }
 
-    async getUserApproval(discussion, originalCode, suggestedCode) {
+    async getUserApproval(discussion, originalCode, suggestedCode, fileName) {
         console.log('\n' + '🔍 REVIEW DISCUSSION #' + discussion.id);
         console.log('─'.repeat(50));
         console.log(`💬 Comment: "${discussion.comment}"`);
         console.log(`📍 Lines: ${discussion.lines.join(', ')}`);
-        console.log(`📄 File: ${this.appFilePath}`);
+        console.log(`📄 File: ${fileName}`);
         
         this.displayDiff(originalCode, suggestedCode);
         
@@ -253,34 +265,43 @@ Maintain the same indentation and formatting style as the original code.`;
 
     async processDiscussion(discussion, discussionIndex, totalDiscussions) {
         try {
-            this.log(`Processing discussion ${discussionIndex + 1}/${totalDiscussions}: "${discussion.comment}"`);
+            const fileName = discussion.file || 'app.js';
             
-            const appContent = this.readFile(this.appFilePath);
+            this.log(`Processing discussion ${discussionIndex + 1}/${totalDiscussions}: "${discussion.comment}" in ${fileName}`);
+            
+            // Check if the target file exists
+            if (!fs.existsSync(fileName)) {
+                this.log(`⚠️ Target file ${fileName} not found, skipping discussion #${discussion.id}`, 'warning');
+                this.skippedCount++;
+                return false;
+            }
+            
+            const fileContent = this.readFile(fileName);
             const [startLine, endLine] = discussion.lines.length === 1 
                 ? [discussion.lines[0], discussion.lines[0] + 1] 
                 : [Math.min(...discussion.lines), Math.max(...discussion.lines) + 1];
             
-            const { extractedCode } = this.extractCodeLines(appContent, startLine, endLine);
+            const { extractedCode } = this.extractCodeLines(fileContent, startLine, endLine);
             
-            this.log(`Extracted ${endLine - startLine} line(s) from ${this.appFilePath}`);
+            this.log(`Extracted ${endLine - startLine} line(s) from ${fileName}`);
             
-            const prompt = this.createEnhancedOpenAIPrompt(discussion, extractedCode);
+            const prompt = this.createEnhancedOpenAIPrompt(discussion, extractedCode, fileName);
             const suggestedFix = await this.callOpenAI(prompt);
             
             this.log('Received suggestion from OpenAI', 'success');
             
-            const userAccepted = await this.getUserApproval(discussion, extractedCode, suggestedFix);
+            const userAccepted = await this.getUserApproval(discussion, extractedCode, suggestedFix, fileName);
             
             if (userAccepted) {
                 const updatedContent = this.applyFix(
-                    appContent, 
+                    fileContent, 
                     suggestedFix, 
                     startLine - 1, 
                     endLine - 1
                 );
                 
-                this.writeFile(this.appFilePath, updatedContent);
-                this.log(`✅ Applied fix for discussion #${discussion.id}`, 'success');
+                this.writeFile(fileName, updatedContent);
+                this.log(`✅ Applied fix for discussion #${discussion.id} to ${fileName}`, 'success');
                 
                 // Mark this discussion as resolved for removal from discussions.json
                 this.resolvedDiscussionIds.push(discussion.id);
@@ -308,10 +329,10 @@ Maintain the same indentation and formatting style as the original code.`;
         console.log('═'.repeat(50));
         
         if (this.appliedCount > 0) {
-            console.log(`🎉 ${this.appliedCount} fix(es) applied to ${this.appFilePath}!`);
+            console.log(`🎉 ${this.appliedCount} fix(es) applied to various files!`);
             console.log(`🗑️  ${this.resolvedDiscussionIds.length} resolved discussion(s) removed from ${this.discussionsFilePath}`);
         } else {
-            console.log(`📝 No changes made to ${this.appFilePath}`);
+            console.log(`📝 No changes made to any files`);
         }
         
         if (this.resolvedDiscussionIds.length > 0) {

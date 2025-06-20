@@ -1,44 +1,62 @@
 [
   {
+    "id": 1,
+    "file": "index.html",
+    "lines": [
+      14
+    ],
+    "comment": "Add an aria-label to improve accessibility for screen readers.",
+    "source": {
+      "type": "review_comment",
+      "pr": 1,
+      "prTitle": "PR #1",
+      "author": "Yanuthana",
+      "path": "myproject/index.html",
+      "url": "https://github.com/Yanuthana/Sea-turtle-home-page/pull/1#discussion_r2158110016",
+      "state": "submitted",
+      "owner": "Yanuthana",
+      "repo": "Sea-turtle-home-page",
+      "fullPath": "myproject/index.html"
+    }
+  },
+  {
+    "id": 2,
+    "file": "script.js",
+    "lines": [
+      3
+    ],
+    "comment": "Avoid innerHTML for text updates unless needed. Use textContent for safety.",
+    "source": {
+      "type": "review_comment",
+      "pr": 1,
+      "prTitle": "PR #1",
+      "author": "Yanuthana",
+      "path": "myproject/script.js",
+      "url": "https://github.com/Yanuthana/Sea-turtle-home-page/pull/1#discussion_r2158110645",
+      "state": "submitted",
+      "owner": "Yanuthana",
+      "repo": "Sea-turtle-home-page",
+      "fullPath": "myproject/script.js"
+    }
+  },
+  {
     "id": 3,
-    "comment": "The function should handle null input gracefully and return a default value",
+    "file": "script.js",
     "lines": [
       2
-    ]
-  },
-  {
-    "id": 4,
-    "comment": "Add more specific error handling in the catch block",
-    "lines": [
-      9,
-      10
-    ]
-  },
-  {
-    "id": 5,
-    "comment": "Consider renaming getUserName to be more descriptive, like extractUserDisplayName",
-    "lines": [
-      1
-    ]
-  },
-  {
-    "id": 6,
-    "comment": "The try-catch block should have better error context and logging",
-    "lines": [
-      7,
-      8,
-      9,
-      10,
-      11
-    ]
-  },
-  {
-    "id": 7,
-    "comment": "Add input validation to ensure user parameter is an object before accessing properties",
-    "lines": [
-      1,
-      2,
-      3
-    ]
+    ],
+    "comment": "Use const if variable is not reassigned",
+    "source": {
+      "type": "review_comment",
+      "pr": 1,
+      "prTitle": "PR #1",
+      "author": "Yanuthana",
+      "path": "myproject/script.js",
+      "url": "https://github.com/Yanuthana/Sea-turtle-home-page/pull/1#discussion_r2158111915",
+      "state": "submitted",
+      "owner": "Yanuthana",
+      "repo": "Sea-turtle-home-page",
+      "fullPath": "myproject/script.js"
+    }
   }
 ]
